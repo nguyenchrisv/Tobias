@@ -1,4 +1,6 @@
 
 # Tobias Funke Cycling Light Taillight
 
-This project utilizes an Adafruit Dotstar Matrix and Adafruit Trinket m0
+This project utilizes: 
+- Adafruit Dotstar Matrix
+- Adafruit Trinket m0 3v

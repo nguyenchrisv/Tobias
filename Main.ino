@@ -1,6 +1,3 @@
-// Adafruit_DotStarMatrix example for single DotStar LED matrix.
-// Scrolls 'Adafruit' across the matrix.
-
 #include <SPI.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_DotStarMatrix.h>
@@ -9,166 +6,168 @@
 
 #define DATAPIN    0
 #define CLOCKPIN   2
-
-#define SHIFTDELAY 100
 #define BRIGHTNESS 20
+#define SHIFTDELAY 100
+#define buttonPin 4
 
-// MATRIX DECLARATION:
-// Parameter 1 = width of DotStar matrix
-// Parameter 2 = height of matrix
-// Parameter 3 = pin number (most are valid)
-// Parameter 4 = matrix layout flags, add together as needed:
-//   DS_MATRIX_TOP, DS_MATRIX_BOTTOM, DS_MATRIX_LEFT, DS_MATRIX_RIGHT:
-//     Position of the FIRST LED in the matrix; pick two, e.g.
-//     DS_MATRIX_TOP + DS_MATRIX_LEFT for the top-left corner.
-//   DS_MATRIX_ROWS, DS_MATRIX_COLUMNS: LEDs are arranged in horizontal
-//     rows or in vertical columns, respectively; pick one or the other.
-//   DS_MATRIX_PROGRESSIVE, DS_MATRIX_ZIGZAG: all rows/columns proceed
-//     in the same order, or alternate lines reverse direction; pick one.
-//   See example below for these values in action.
-// Parameter 5 = pixel type:
-//   DOTSTAR_BRG  Pixels are wired for BRG bitstream (most DotStar items)
-//   DOTSTAR_GBR  Pixels are wired for GBR bitstream (some older DotStars)
-//   DOTSTAR_BGR  Pixels are wired for BGR bitstream (APA102-2020 DotStars)
-
-Adafruit_DotStarMatrix matrix = Adafruit_DotStarMatrix(
-                                  8, 8, DATAPIN, CLOCKPIN,
-                                  DS_MATRIX_BOTTOM     + DS_MATRIX_LEFT +
-                                  DS_MATRIX_ROWS + DS_MATRIX_PROGRESSIVE,
-                                  DOTSTAR_BGR);
-
-
-
-
-int x    = matrix.width();
-
-int pass = 0;
-const int buttonPin = 4;
-int flag = 0;
+#define countof(a) (sizeof(a) / sizeof(a[0]))
+#define EVER (;;)
 
 // Variables will change:
 int buttonPushCounter = 0;  // counter for the number of button presses
 int buttonState = 0;        // current state of the button
 int lastButtonState = 0;    // previous state of the button
 
-#define EVER (;;);
 
-//cat face 
-int catArray [] = {3,4,10,13,17,22,24,31,32,34,37,39,40,47,48,49,50,51,52,53,54,55,56,57,62,63};
+Adafruit_DotStarMatrix matrix = Adafruit_DotStarMatrix(
+    8, 8, DATAPIN, CLOCKPIN,
+    DS_MATRIX_BOTTOM + DS_MATRIX_LEFT +
+    DS_MATRIX_ROWS + DS_MATRIX_PROGRESSIVE,
+    DOTSTAR_BGR);
 
-//2x2 square
-int twoArray [] = {27,28,35,36};
+struct sequences {
+  int pixels[27];
+  uint8_t r;
+  uint8_t g;
+  uint8_t b;
+  int delay;
+  bool zero;
+};
 
-//4X4
-int fourArray [] = {18,19,20,21,26,29,34,37,42,43,44,45};
+// Define sequences
+struct sequences cat[] = {
+  {{3,4,10,13,17,22,24,31,32,34,37,39,40,47,48,49,50,51,52,53,54,55,56,57,62,63}, 255, 0, 0, 300, false},
+  {{3,4,10,13,17,22,24,31,32,34,37,39,40,47,48,49,50,51,52,53,54,55,56,57,62,63}, 255, 200, 0, 300, false},
+  {{3,4,10,13,17,22,24,31,32,34,37,39,40,47,48,49,50,51,52,53,54,55,56,57,62,63}, 0, 0, 0, 300, false}
+};
 
-//6x6 square
-int sixArray [] = {9,10,11,12,13,14,17,14,22,25,30,33,38,41,46,49,50,51,52,53,54};
+struct sequences box[] = {
+  {{27,28,35,36}, 255, 0, 0, 50, false},
+  {{18,19,20,21,26,29,34,37,42,43,44,45}, 255, 0, 0, 20, false},
+  {{9,10,11,12,13,14,17,14,22,25,30,33,38,41,46,49,50,51,52,53,54}, 255, 0, 0, 10, false},
+  {{27,28,35,36}, 255, 200, 0, 200, false},
+  {{27,28,35,36}, 0, 0, 0, 300, false}
+};
 
-//8X8 square
-int eightArray [] = {0,1,2,3,4,5,6,7,8,15,16,23,24,31,32,39,40,47,48,55,56,57,58,59,60,61,62,63};
+void displaySequence(struct sequences sequence[], size_t sequenceSize) {
+  for (size_t i = 0; i < sequenceSize; ++i) {
+    for (int pixel : sequence[i].pixels) {
+      matrix.setPixelColor(pixel, sequence[i].r, sequence[i].g, sequence[i].b);
+    }
+
+    if (sequence[i].zero == false) {
+      matrix.setPixelColor(0, 0, 0, 0);
+    }
+
+    matrix.show();
+    delay(sequence[i].delay);
+  }
+}
+
+int (*returnRowPixels(int pixel))[8] {
+  int startPixel = ((pixel / 8) * 8);;
+  int endPixel = ((pixel + 8 - (pixel % 8)) - 1);
+	
+  static int rowArray[8];
+  int i;
+ for (i = 0 ;i < 8; i++) {
+    if(i == 0){
+      rowArray[i] = startPixel;
+    }else{
+      rowArray[i] = startPixel + i;
+    }
+  }
+	return &rowArray;
+}
+
+int (*returnColumnPixels(int pixel))[8] {
+  
+  int bottomPixel; 
+  for (int i = 0; i < 8; i++){
+    if(pixel >= 8){
+      pixel = pixel - 8;
+      bottomPixel = pixel;
+    }else{
+      bottomPixel = pixel;
+    }
+
+  }
+  static int columnArray[8];
+  int topPixel = bottomPixel + 56;
+ 
+ for (int i = 0; i < 8; i++){
+    if(i == 0){
+      columnArray[i] = bottomPixel;
+    }else{
+      columnArray[i] = bottomPixel + (i*8);
+    }
+  }
+   
+return &columnArray;
+
+ }
+
+  
+
 
 void setup() {
   Serial.begin(115200);
   matrix.begin();
   matrix.show(); // Initialize all pixels to 'off'
-
   pinMode(buttonPin, INPUT);
 }
 
-
 void loop() {
-
-  matrix.setBrightness(20 );
+  matrix.setBrightness(BRIGHTNESS);
   matrix.fillScreen(0);
-  matrix.setCursor(x, 0);
+  matrix.setCursor(matrix.width(), 0);
 
-  // read the pushbutton input pin:
-  buttonState = digitalRead(buttonPin);
+  int buttonState = digitalRead(buttonPin);
 
-  // compare the buttonState to its previous state
   if (buttonState != lastButtonState) {
-    // if the state has changed, increment the counter
     if (buttonState == HIGH) {
-      // if the current state is HIGH then the button went from off to on:
-      if (buttonPushCounter < 1 ){
-        buttonPushCounter++;
-
-      }else {
-        buttonPushCounter = 0;
-
-      }
+      buttonPushCounter = (buttonPushCounter < 3) ? (buttonPushCounter + 1) : 0;
       Serial.println("on");
       Serial.print("number of button pushes: ");
       Serial.println(buttonPushCounter);
-    } else {
-      // if the current state is LOW then the button went from on to off:
-      Serial.println("off");
     }
-    // Delay a little bit to avoid bouncing
-    //delay(50);
+    lastButtonState = buttonState;
   }
-  // save the current state as the last state, for next time through the loop
-  lastButtonState = buttonState;
 
-
-  // turns on the LED every four button pushes by checking the modulo of the
-  // button push counter. the modulo function gives you the remainder of the
-  // division of two numbers:
   if (buttonPushCounter == 0) {
-      for (int pixel : catArray){
-        matrix.setPixelColor(pixel,255,0,0);        
+    displaySequence(cat, countof(cat));
+  } else if(buttonPushCounter == 1 ) {
+    displaySequence(box, countof(box));
+  } else if(buttonPushCounter == 2 ) {
+int randomNumber = std::rand() % 66 - 1;
+
+int (*arrr)[8] = returnColumnPixels(randomNumber);
+ 
+ for (int pixel : *arrr ) {
+      if (pixel <= randomNumber){
+        matrix.setPixelColor(pixel, 255, 0, 0);
+        matrix.show();
+        delay(80);
       }
 
-      matrix.show();
-      delay(300);
+    }
+    
+  }else {
 
-      for (int pixel : catArray){
-        matrix.setPixelColor(pixel,0,0,0);        
-      }
+int randomNumber = std::rand() % 66 - 1;
 
-      matrix.show();
-      delay(300);
-  } else {
-      for (int pixel : twoArray){
-        matrix.setPixelColor(pixel,255,0,0);
-      }
-      matrix.show();
-      delay(50);
-      
-      for (int pixel : fourArray){
-        matrix.setPixelColor(pixel,255,0,0);
-      }
-      matrix.show();
-      delay(20);
-      
-      for (int pixel : sixArray){
-        matrix.setPixelColor(pixel,255,0,0);
-      }
-      matrix.show();
-      delay(10);
-      
-      for (int pixel : twoArray){
-        matrix.setPixelColor(pixel,255,200,0);
-      }
-      
-      matrix.setBrightness(20);
-      matrix.show();
-      
-      delay(200);
-      
-      for (int pixel : twoArray){
-        matrix.setPixelColor(pixel,0,0,0);
+int (*arrr)[8] = returnRowPixels(randomNumber);
+
+
+  for (int pixel : *arrr ) {
+      if (pixel >= randomNumber){
+        matrix.setPixelColor(pixel, 255, 0, 0);
+        matrix.show();
+        delay(80);
       }
 
-      matrix.show();
+    }
 
 
   }
-
-
-  
-  //delay(100);
 }
-
-
